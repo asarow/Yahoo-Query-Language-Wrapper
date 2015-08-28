@@ -7,6 +7,13 @@ import java.io.InputStreamReader;
 import java.net.MalformedURLException;
 import java.net.URL;
 
+/**
+ * A wrapper for the Yahoo! Query Language Finance database. Documentation
+ * is available on GitHub @: 
+ * https://github.com/asarow/Yahoo-Query-Language-Wrapper
+ * 
+ * @author Amandeep Sarow
+ */
 public class YQLWrapper {
     private static final String YQL_BEGIN = 
 	"https://query.yahooapis.com/v1/public/" +
