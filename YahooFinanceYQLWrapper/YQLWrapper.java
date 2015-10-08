@@ -354,7 +354,7 @@ public class YQLWrapper {
     public static ArrayList<ArrayList<String>> balanceSheet(String ticker, String periodType) {
 	ArrayList<ArrayList<String>> balanceSheetData;
 	String urlToPass = YQL_STATEMENT_BEGIN + BS + YQL_STATEMENT_MID + ticker
-	    + "&" + periodType;
+	    + "&" + periodType;	
 	balanceSheetData = retrieveFinancialStatementData(urlToPass, periodType, BS);
 	return balanceSheetData;
     }
@@ -462,9 +462,17 @@ public class YQLWrapper {
 		      HTML */
 		    if (lineOfHTMLData.contains("Period Ending"))
 			startScraping = true;
-
-		    if (lineOfHTMLData.contains("Net Income Applicable To Common Shares"))
-			startIncrement = true;
+		    
+		    if (statementType == IS) {
+			if (lineOfHTMLData.contains("Net Income Applicable To Common Shares"))
+			    startIncrement = true;
+		    } else if (statementType == BS) {
+			if (lineOfHTMLData.contains("Net Tangible Assets"))
+			    startIncrement = true;
+		    } else {
+			if (lineOfHTMLData.contains("Change In Cash and Cash Equivalents"))
+			    startIncrement = true;
+		    }
 
 		    if (startScraping == true) {
 			String returnedHTML = scrapeExcessHTML(lineOfHTMLData);
@@ -473,9 +481,7 @@ public class YQLWrapper {
 									       statementType);
 			    if (newList.size() > 0)
 				statementDataToReturn.add(newList);
-			    
 			}
-			
 		    }
 
 		    if (startIncrement == true)
@@ -496,22 +502,23 @@ public class YQLWrapper {
 
     /* Removes excess HTML characters/code from a given String */
     private static String scrapeExcessHTML(String lineOfHTMLData) {
-	while (lineOfHTMLData.contains("<") || lineOfHTMLData.contains(">")) {
-	    int firstIndex = lineOfHTMLData.indexOf("<");
-	    int nextIndex = lineOfHTMLData.indexOf(">")+1;
+	String lineToModify = lineOfHTMLData;
+	while (lineToModify.contains("<") || lineOfHTMLData.contains(">")) {
+	    int firstIndex = lineToModify.indexOf("<");
+	    int nextIndex = lineToModify.indexOf(">")+1;
 	    if (firstIndex == -1 || nextIndex == -1)
 		break;
 	    
-	    String lineToRemove = lineOfHTMLData.substring(firstIndex, nextIndex);
-	    lineOfHTMLData = lineOfHTMLData.replace(lineToRemove, " ");
-	    lineOfHTMLData.trim();
+	    String lineToRemove = lineToModify.substring(firstIndex, nextIndex);
+	    lineToModify = lineToModify.replace(lineToRemove, " ");
+	    lineToModify.trim();
 	}
 	
-	while(lineOfHTMLData.contains("&nbsp;")) {
-	    lineOfHTMLData = lineOfHTMLData.replaceAll("&nbsp", "").replaceAll
+	while(lineToModify.contains("&nbsp;")) {
+	    lineToModify = lineToModify.replaceAll("&nbsp", "").replaceAll
 		(";", "");
 	}
-	return lineOfHTMLData.trim();
+	return lineToModify.trim();
     }
 
     /* Builds an ArrayList containing a financial statement */
@@ -573,10 +580,15 @@ public class YQLWrapper {
 				financialStatementPeriod = "";
 			    }
 			}// end periodEndingFound if-block
-			if (j == line.length-1 && statementType.equals(BS)) {
+
+			// Known bug wth block of code below, TODO: Fix
+			/*
+			  if (j == line.length-1 && statementType.equals(BS)) {
 			    dataToReturn.add("Assets");
 			    dataToReturn.add("CurrentAssets");
-			}
+			  }
+			*/
+			
 			    
 		    }// end inner for-loop
 
@@ -598,7 +610,6 @@ public class YQLWrapper {
 		combine += line[i] + " ";
 		
 		if (checkIfHeader(combine) == true) {
-		    System.out.println(combine);
 		    dataToReturn.add(combine);
 		    combine = "";
 		}
@@ -619,6 +630,9 @@ public class YQLWrapper {
 		    dataToReturn.add(line[i]);
 		}
 	    } // end checking if data exists
+
+	    if (i == line.length-1 && Character.isAlphabetic(line[i].charAt(0)))
+		dataToReturn.add(combine);
 	}// end outer for-loop
 
 	return dataToReturn;
