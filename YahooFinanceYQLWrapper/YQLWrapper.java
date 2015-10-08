@@ -327,28 +327,52 @@ public class YQLWrapper {
 	return Double.parseDouble(findDataInXML(YEAR_LOW, ticker));
     }
 
-    public static List<String> incomeStatement(String ticker, String periodType)
+    /**
+     * Retrieves the complete income statement for a public corporation.
+     *
+     * @param ticker     The stock ticker for the public corporation.
+     * @param periodType The type of statement period (quarterly, annual).
+     * @return           The income statement in a two-dimensional ArrayList.
+     */
+    public static ArrayList<ArrayList<String>> incomeStatement(String ticker, String periodType)
     {
-        List<String> incomeStatementData;
+        ArrayList<ArrayList<String>> incomeStatementData;
 	String urlToPass = YQL_STATEMENT_BEGIN + IS + YQL_STATEMENT_MID + ticker
 	    + "&" + periodType;
-        retrieveFinancialStatementData(urlToPass, periodType, IS);
-	return null;
+	
+        incomeStatementData = retrieveFinancialStatementData(urlToPass, periodType, IS);
+	return incomeStatementData;
     }
 
-    public static List<String> balanceSheet(String ticker, String periodType) {
-	List<String> incomeStatementData;
+    /**
+     * Retrieves the complete balance sheet for a public corporation.
+     *
+     * @param ticker     The stock ticker for the public corporation.
+     * @param periodType The type of statement period (quarterly, annual).
+     * @return           The balance statement in a two-dimensional ArrayList.
+     */
+    public static ArrayList<ArrayList<String>> balanceSheet(String ticker, String periodType) {
+	List<String> balanceSheetData;
 	String urlToPass = YQL_STATEMENT_BEGIN + BS + YQL_STATEMENT_MID + ticker
 	    + "&" + periodType;
-	return null;
+	balanceSheetData = retrieveFinancialStatementData(urlToPass, periodType, BS);
+	return balanceSheetData;
     }
-
-    public static List<String> statementOfCashFlows(String ticker, String
+    
+    /**
+     * Retrieves the complete cash flows statement for a public corporation.
+     *
+     * @param ticker     The stock ticker for the public corporation.
+     * @param periodType The type of statement period (quarterly, annual).
+     * @return           The cash flows statement in a two-dimensional ArrayList.
+     */
+    public static ArrayList<ArrayList<String>> statementOfCashFlows(String ticker, String
 						    periodType) {
-	List<String> incomeStatementData;
+	List<String> StatementOfCashFlowsData;
 	String urlToPass = YQL_STATEMENT_BEGIN + CF + YQL_STATEMENT_MID + ticker
 	    + "&" + periodType;
-	return null;
+	statementOfCashFlows = retrieveFinancialStatementData(urlToPass, periodType, CF);
+	return statementOfCashFlows;
     }
     
     /* BEGIN PRIVATE METHODS */
@@ -405,12 +429,14 @@ public class YQLWrapper {
 	return XMLDataLine.substring(firstIndex, lastIndex);
     }
 
-    private static List<String> retrieveFinancialStatementData(String urlToOpen,
+    /* Scrapes the HTML page for lines of relevant financial data */
+    private static ArrayList<ArrayList<String>> retrieveFinancialStatementData(String urlToOpen,
 							       String periodType,
 							       String statementType) {
 	URL url;
 	InputStream istream = null;
 	BufferedReader reader;
+	ArrayList<ArrayList<String>> statementDataToReturn = new ArrayList<ArrayList<String>>();
 	String lineOfHTMLData;
 	boolean startScraping = false;
 	boolean startIncrement = false;
@@ -442,8 +468,14 @@ public class YQLWrapper {
 
 		    if (startScraping == true) {
 			String returnedHTML = scrapeExcessHTML(lineOfHTMLData);
-			if (returnedHTML.length() > 0 )
-			    buildFinancialDataList(returnedHTML.split(" "), statementType);
+			if (returnedHTML.length() > 0 ) {
+			    ArrayList<String> newList = buildFinancialDataList(returnedHTML.split(" "),
+									       statementType);
+			    if (newList.size() > 0)
+				statementDataToReturn.add(newList);
+			    
+			}
+			
 		    }
 
 		    if (startIncrement == true)
@@ -457,10 +489,12 @@ public class YQLWrapper {
 	    System.out.println("Invalid URL provided.");
 	    e.printStackTrace();
 	    return null;
-	}return null;
+	}
+	return statementDataToReturn;
 
     }
 
+    /* Removes excess HTML characters/code from a given String */
     private static String scrapeExcessHTML(String lineOfHTMLData) {
 	while (lineOfHTMLData.contains("<") || lineOfHTMLData.contains(">")) {
 	    int firstIndex = lineOfHTMLData.indexOf("<");
@@ -480,9 +514,130 @@ public class YQLWrapper {
 	return lineOfHTMLData.trim();
     }
 
-    private static void buildFinancialDataList(String[] line, String statementType) {
-	for (int i = 0; i < line.length; i++) {
-	    System.out.println(line[i] + " ");
+    /* Builds an ArrayList containing a financial statement */
+    private static ArrayList<String> buildFinancialDataList(String[] line, String statementType) {
+	ArrayList<String> dataToReturn = new ArrayList<String>();
+
+	/* Empty lines do not contain any
+	   data so they are ignored */
+	if (line.length == 0)
+	    return null;
+
+	/* If the length is of 1, it is data that is not currently present
+	   which is denoted with a dash ( - ). Thus we no longer need to
+	   continue attempting to build the data */
+	if (line.length == 1 || line[0].equals("-")) {
+	    dataToReturn.add(line[0]);
+	    return dataToReturn;
 	}
+
+	/* Some of the HTML data will contain headers which represent
+	   the type of data. These must be split and recombined as they
+	   are located adjacently within the line[] array */
+	String combine = "";
+	boolean printAgain = true;
+	boolean numeric = false;
+
+	/* From this point forward, the data is likely spread across
+	   the array and thus the array must be iterated through in order
+	   to return the data correctly. */
+
+	for (int i = 0; i < line.length; i++) {
+	    if (line[i].isEmpty())
+		continue;
+
+	    /* Each array index must be checked to see if it is either
+	       a header or numeric data */
+	    /* If the data is alphabetic, it is a header that must be
+	       combined together by iterating through the array since the
+	       header is split apart in adjacent array indices */
+	    if (Character.isAlphabetic(line[i].charAt(0))) {
+		if (line[i].equals("Get")) {
+		    boolean periodEndingFound = false;
+		    int counter = 0;
+		    String financialStatementPeriod = "";
+
+		    for (int j = 0; j < line.length; j++) {
+			if (line[j].equals("Ending"))
+			    periodEndingFound  = true;
+
+			if (periodEndingFound  == true && !line[j].isEmpty()
+			    && (line[j].length() == 3 ||
+				line[j].length() == 4)) {
+			    counter++;
+			    financialStatementPeriod += line[j] + " ";
+
+			    if (counter == 3) {
+				dataToReturn.add(financialStatementPeriod);
+				counter = 0;
+				financialStatementPeriod = "";
+			    }
+			}// end periodEndingFound if-block
+			if (j == line.length-1 && statementType.equals(BS)) {
+			    dataToReturn.add("Assets");
+			    dataToReturn.add("CurrentAssets");
+			}
+			    
+		    }// end inner for-loop
+
+		    if (statementType.equals(IS)) {
+			dataToReturn.add(0, "Income Statement");
+		    } else if (statementType.equals(BS)) {
+			dataToReturn.add(0, "Balance Sheet");
+		    } else {
+			dataToReturn.add(0, "Statement of Cash Flows");
+		    }
+		    return dataToReturn;
+		}
+
+		if (printAgain == false && numeric == true) {
+		    printAgain = true;
+		    numeric = false;
+		}
+
+		combine += line[i] + " ";
+		
+		if (checkIfHeader(combine) == true) {
+		    System.out.println(combine);
+		    dataToReturn.add(combine);
+		    combine = "";
+		}
+	    } // end main if-block, check for header complete.
+
+	    /* Checking for financial statements header is complete
+	       and checking for data begins  */
+	    if (line[i].length() > 1 && (Character.isDigit(line[i].charAt(0)) ||
+					 Character.isDigit(line[i].charAt(1)))) {
+		numeric = true;
+
+		if (printAgain == true) {
+		    dataToReturn.add(combine);
+		    combine = "";
+		    dataToReturn.add(line[i]);
+		    printAgain = false;
+		} else {
+		    dataToReturn.add(line[i]);
+		}
+	    } // end checking if data exists
+	}// end outer for-loop
+
+	return dataToReturn;
+    }
+
+     /** 
+     * Compares known financial headers to the String parameter.
+     *
+     * @return true if there is a match, false otherwise.
+     */
+    private static boolean checkIfHeader(String currentHeaderWord) {
+	String[] headerWords = {"Assets", "Liabilities", "Stockholders' Equity",
+		 "Operating Activities, Cash Flows Provided By or Used In",
+	         "Investing Activities, Cash Flows Provided By or Used In",
+	          "Financing Activities, Cash Flows Provided By or Used In"};
+	for (int i = 0; i < headerWords.length; i++) {
+	    if (currentHeaderWord.trim().equals(headerWords[i])) {
+		return true;
+	    }
+	} return false;
     }
 }
