@@ -352,7 +352,7 @@ public class YQLWrapper {
      * @return           The balance statement in a two-dimensional ArrayList.
      */
     public static ArrayList<ArrayList<String>> balanceSheet(String ticker, String periodType) {
-	List<String> balanceSheetData;
+	ArrayList<ArrayList<String>> balanceSheetData;
 	String urlToPass = YQL_STATEMENT_BEGIN + BS + YQL_STATEMENT_MID + ticker
 	    + "&" + periodType;
 	balanceSheetData = retrieveFinancialStatementData(urlToPass, periodType, BS);
@@ -368,11 +368,11 @@ public class YQLWrapper {
      */
     public static ArrayList<ArrayList<String>> statementOfCashFlows(String ticker, String
 						    periodType) {
-	List<String> StatementOfCashFlowsData;
+	ArrayList<ArrayList<String>> statementOfCashFlowsData;
 	String urlToPass = YQL_STATEMENT_BEGIN + CF + YQL_STATEMENT_MID + ticker
 	    + "&" + periodType;
-	statementOfCashFlows = retrieveFinancialStatementData(urlToPass, periodType, CF);
-	return statementOfCashFlows;
+	statementOfCashFlowsData = retrieveFinancialStatementData(urlToPass, periodType, CF);
+	return statementOfCashFlowsData;
     }
     
     /* BEGIN PRIVATE METHODS */
