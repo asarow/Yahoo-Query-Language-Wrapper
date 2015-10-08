@@ -58,9 +58,9 @@ public class YQLWrapper {
 	SHORT_RATIO               = "<ShortRatio>",
 	YEAR_HIGH                 = "<YearHigh>",
 	YEAR_LOW                  = "<YearLow>",
-	BS                        = "balancesheet",
-	IS                        = "incomestatement",
-	CF                        = "cashflow";
+	BS                        = "bs",
+	IS                        = "is",
+	CF                        = "cf";
 
     /** 
      *	Retrieves the asking price for a given stock ticker.
@@ -332,7 +332,7 @@ public class YQLWrapper {
         List<String> incomeStatementData;
 	String urlToPass = YQL_STATEMENT_BEGIN + IS + YQL_STATEMENT_MID + ticker
 	    + "&" + periodType;
-	System.out.println(urlToPass);
+        retrieveFinancialStatementData(urlToPass, periodType, IS);
 	return null;
     }
 
@@ -403,8 +403,86 @@ public class YQLWrapper {
 	    dataToExtract.substring(1,dataToExtract.length());
 	lastIndex = XMLDataLine.indexOf(dataToExtract);
 	return XMLDataLine.substring(firstIndex, lastIndex);
+    }
+
+    private static List<String> retrieveFinancialStatementData(String urlToOpen,
+							       String periodType,
+							       String statementType) {
+	URL url;
+	InputStream istream = null;
+	BufferedReader reader;
+	String lineOfHTMLData;
+	boolean startScraping = false;
+	boolean startIncrement = false;
+	int i = 0;
+
+	try {
+	    url = new URL(urlToOpen);
+	    try {
+		istream = url.openStream();
+	    } catch (IOException e) {
+		System.out.println("Failed to retrieve URL.");
+		e.printStackTrace();
+	    }
+
+	    reader = new BufferedReader(new InputStreamReader(istream));
+
+	    try {
+		while((lineOfHTMLData = reader.readLine()) != null &&
+		      (periodType.equals("quarterly") && i != 17) ||
+		      (periodType.equals("annual") && i != 14)) {
+
+		    /*Start scraping at either the 14th or 17th line of
+		      HTML */
+		    if (lineOfHTMLData.contains("Period Ending"))
+			startScraping = true;
+
+		    if (lineOfHTMLData.contains("Net Income Applicable To Common Shares"))
+			startIncrement = true;
+
+		    if (startScraping == true) {
+			String returnedHTML = scrapeExcessHTML(lineOfHTMLData);
+			if (returnedHTML.length() > 0 )
+			    buildFinancialDataList(returnedHTML.split(" "), statementType);
+		    }
+
+		    if (startIncrement == true)
+			i++;
+		}// end While loop
+	    } catch (IOException e) {
+		System.out.println("Failed to read from the URL.");
+		e.printStackTrace();
+	    }
+	} catch (MalformedURLException e) {
+	    System.out.println("Invalid URL provided.");
+	    e.printStackTrace();
+	    return null;
+	}return null;
 
     }
 
-    private static
+    private static String scrapeExcessHTML(String lineOfHTMLData) {
+	while (lineOfHTMLData.contains("<") || lineOfHTMLData.contains(">")) {
+	    int firstIndex = lineOfHTMLData.indexOf("<");
+	    int nextIndex = lineOfHTMLData.indexOf(">")+1;
+	    if (firstIndex == -1 || nextIndex == -1)
+		break;
+	    
+	    String lineToRemove = lineOfHTMLData.substring(firstIndex, nextIndex);
+	    lineOfHTMLData = lineOfHTMLData.replace(lineToRemove, " ");
+	    lineOfHTMLData.trim();
+	}
+	
+	while(lineOfHTMLData.contains("&nbsp;")) {
+	    lineOfHTMLData = lineOfHTMLData.replaceAll("&nbsp", "").replaceAll
+		(";", "");
+	}
+	return lineOfHTMLData.trim();
+    }
+
+    private static void buildFinancialDataList(String[] line, String statementType) {
+	for (int i = 0; i < line.length; i++) {
+	    System.out.println(line[i] + " ");
+	}
+    }
 }
